@@ -1,0 +1,14 @@
+body {
+  font: 10px sans-serif;
+}
+div {
+}
+h1 {font-size:40px;text-transform:uppercase;}
+
+section {float:left;width:49%;text-align:center;}
+
+.chords path {
+  fill-opacity: .67;
+  stroke: #000;
+  stroke-width: .5px;
+}
