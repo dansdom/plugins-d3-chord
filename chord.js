@@ -101,11 +101,21 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             // set the chart radii
             container.innerRadius = Math.min(container.opts.width, container.opts.height) * .40;
             container.outerRadius = container.innerRadius * 1.1;
+            // define the arc and chord for the transitions
+            container.svgArc = d3.svg.arc().innerRadius(container.innerRadius).outerRadius(container.outerRadius);
+            container.svgChord = d3.svg.chord().radius(container.innerRadius);
 
             // ###### LAYOUT ######
             // define the chord layout
             if (!container.chord) {
                 container.chord = d3.layout.chord();
+            }
+            // store the old values of the chart
+            else {
+                container.oldValues = {
+                    groups : container.chord.groups(),
+                    chords : container.chord.chords()
+                };
             }
             container.chord
                 .padding(container.opts.padding)
@@ -161,6 +171,19 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                             .transition()
                             .style("opacity", opacity);
                     };
+                },
+                // Interpolate the arcs
+                arcTween = function(arc_svg, old) {
+                    return function(d,i) {
+                        // if there is no data stored in the old group then set it to the same as the new value
+                        if (!old.groups[i]) {
+                            old.groups[i] = d;
+                        }
+                        var i = d3.interpolate(old.groups[i], d);
+                        return function(t) {
+                            return arc_svg(i(t));
+                        }
+                    }
                 };
 
             if (!container.arcs) {
@@ -171,29 +194,87 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             container.arcPaths = container.arcs.selectAll("path")
                 .data(container.chord.groups);
 
+            // add the new arcs
             container.arcPaths.enter()
                 .append("path")
-                .style("fill", function(d) { return container.color(d.index); })
-                .style("stroke", function(d) { console.log(container.color(d.index)); return container.color(d.index); })
-                .attr("d", d3.svg.arc().innerRadius(container.innerRadius).outerRadius(container.outerRadius))
                 .on("mouseover", fade(.1))
                 .on("mouseout", fade(1));
 
+            if (container.oldValues) {
+                container.arcPaths
+                    .transition()
+                    .duration(2000)
+                    .style("fill", function(d) { return container.color(d.index); })
+                    .style("stroke", function(d) { return container.color(d.index); })
+                    .attrTween("d", arcTween(container.svgArc, container.oldValues))   
+            }
+            else {
+                container.arcPaths
+                    .transition()
+                    .duration(2000)
+                    .style("fill", function(d) { return container.color(d.index); })
+                    .style("stroke", function(d) { return container.color(d.index); })
+                    .attr("d", container.svgArc)     
+            }
+                
+            // fade out the old arcs
+            container.arcPaths.exit()
+                .transition()
+                .duration(1000)
+                .style("fill-opacity", 1e-6)
+                .style("stroke-opacity", 1e-6)
+                .remove();
+
         },
         setChords : function() {
-            var container = this;
+            var container = this,
+                chordTween = function(chord_svg, old) {
+                    return function(d,i) {
+                        // if there is no old data then set it to the current value
+                        if (!old.chords[i]) {
+                            old.chords[i] = d;
+                        }
+                        var i = d3.interpolate(old.chords[i], d);
+                        return function(t) {
+                            return chord_svg(i(t));
+                        }
+                    }
+                };
 
             if (!container.chords) {
                 container.chords = container.chart.append("g")
                     .attr("class", "chords");
             }
 
-            container.chords.selectAll("path")
-                .data(container.chord.chords)
-              .enter().append("path")
-                .attr("d", d3.svg.chord().radius(container.innerRadius))
-                .style("fill", function(d) { return container.color(d.target.index); })
-                .style("opacity", 1);
+            container.chordPaths = container.chords.selectAll("path")
+                .data(container.chord.chords);
+
+            container.chordPaths
+                .enter().append("path");
+
+            if (container.oldValues) {
+                container.chordPaths
+                    .transition()
+                    .duration(2000)
+                    .attrTween("d", chordTween(container.svgChord, container.oldValues))
+                    .style("fill", function(d) { return container.color(d.target.index); })
+                    .style("opacity", 1);
+            }
+            else {
+                container.chordPaths
+                    .transition()
+                    .duration(2000)
+                    .attr("d", container.svgChord)
+                    .style("fill", function(d) { return container.color(d.target.index); })
+                    .style("opacity", 1);
+            }
+
+            container.chordPaths.exit()
+                .transition()
+                .duration(2000)
+                .style("fill-opacity", 1e-6)
+                .style("stroke-opacity", 1e-6)
+                .remove();
                 
         },
         setTicks : function() {
@@ -214,28 +295,43 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                     .attr("class", "ticks");
             }
 
+            // remove all the ticks
+            container.ticks.selectAll("g").remove();
+
+            // define the tick groups
             container.tickGroups = container.ticks.selectAll("g")
-                .data(container.chord.groups)
-              .enter().append("g").selectAll("g")
-                .data(groupTicks)
-              .enter().append("g")
+                .data(container.chord.groups);
+            // add new tick groups
+            container.tickGroups.enter().append("g")
+                .attr("class", "tickGroup");
+            
+            // define the units within each group
+            container.tickUnits = container.tickGroups.selectAll("g")
+                .data(groupTicks);
+
+            container.tickUnits.enter().append("g")
+                .attr("class", "tickUnit")
                 .attr("transform", function(d) {
                     return "rotate(" + (d.angle * 180 / Math.PI - 90) + ")" + " translate(" + container.outerRadius +", 0)";
                 });
 
-            container.tickGroups.append("line")
+            container.tickUnits.append("line")
+                .transition()
+                .duration(2000)
                 .attr("x1", 1)
                 .attr("y1", 0)
                 .attr("x2", 5)
                 .attr("y2", 0)
                 .style("stroke", "#000");
 
-            container.tickGroups.append("text")
+            container.tickUnits.append("text")
+                //.transition()
+                //.duration(2000)
                 .attr("x", 8)
                 .attr("dy", ".35em")
                 .attr("transform", function(d) { return d.angle > Math.PI ? "rotate(180) translate(-16)" : null; })
                 .style("text-anchor", function(d) { return d.angle > Math.PI ? "end" : null; })
-                .text(function(d) { return d.label; });
+                .text(function(d) { return d.label; }); 
 
         },
         setLabels : function() {
