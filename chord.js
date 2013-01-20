@@ -45,6 +45,8 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             'value' : 'size',
             'children' : undefined
         },
+        'tickFrequency' : 2,  // this is every 1 degree = 1 tick
+        'labelFrequency' : 5,
         'chartName' : false  // If there is a chart name then insert the value. This allows for deep exploration to show category name
     };
     
@@ -90,9 +92,6 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
 
             // set the ticks for the chart
             this.setTicks();
-
-            // set the labels for the chart
-            this.setLabels();
             
         },
         setLayout : function() {
@@ -179,7 +178,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                         if (!old.groups[i]) {
                             old.groups[i] = d;
                         }
-                        var i = d3.interpolate(old.groups[i], d);
+                        i = d3.interpolate(old.groups[i], d);
                         return function(t) {
                             return arc_svg(i(t));
                         }
@@ -203,7 +202,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             if (container.oldValues) {
                 container.arcPaths
                     .transition()
-                    .duration(2000)
+                    .duration(container.opts.speed)
                     .style("fill", function(d) { return container.color(d.index); })
                     .style("stroke", function(d) { return container.color(d.index); })
                     .attrTween("d", arcTween(container.svgArc, container.oldValues))   
@@ -211,7 +210,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             else {
                 container.arcPaths
                     .transition()
-                    .duration(2000)
+                    .duration(container.opts.speed)
                     .style("fill", function(d) { return container.color(d.index); })
                     .style("stroke", function(d) { return container.color(d.index); })
                     .attr("d", container.svgArc)     
@@ -220,7 +219,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             // fade out the old arcs
             container.arcPaths.exit()
                 .transition()
-                .duration(1000)
+                .duration(container.opts.speed)
                 .style("fill-opacity", 1e-6)
                 .style("stroke-opacity", 1e-6)
                 .remove();
@@ -234,7 +233,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                         if (!old.chords[i]) {
                             old.chords[i] = d;
                         }
-                        var i = d3.interpolate(old.chords[i], d);
+                        i = d3.interpolate(old.chords[i], d);
                         return function(t) {
                             return chord_svg(i(t));
                         }
@@ -255,7 +254,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             if (container.oldValues) {
                 container.chordPaths
                     .transition()
-                    .duration(2000)
+                    .duration(container.opts.speed)
                     .attrTween("d", chordTween(container.svgChord, container.oldValues))
                     .style("fill", function(d) { return container.color(d.target.index); })
                     .style("opacity", 1);
@@ -263,7 +262,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             else {
                 container.chordPaths
                     .transition()
-                    .duration(2000)
+                    .duration(container.opts.speed)
                     .attr("d", container.svgChord)
                     .style("fill", function(d) { return container.color(d.target.index); })
                     .style("opacity", 1);
@@ -271,7 +270,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
 
             container.chordPaths.exit()
                 .transition()
-                .duration(2000)
+                .duration(container.opts.speed)
                 .style("fill-opacity", 1e-6)
                 .style("stroke-opacity", 1e-6)
                 .remove();
@@ -282,10 +281,34 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                 // Returns an array of tick angles and labels, given a group.
                 groupTicks = function(d) {
                     var k = (d.endAngle - d.startAngle) / d.value;
-                    return d3.range(0, d.value, 1000).map(function(v, i) {
+                    //console.log(d.value);
+                    //console.log(d.endAngle - d.startAngle);
+                    // get angle, then divide by total angle. this gives me the percetage
+                    var anglePercentage = (d.endAngle - d.startAngle) / (Math.PI * 2) * 100;
+                    //console.log(anglePercentage);
+                    // value per degree of the circle
+                    var valueDeg = d.value / anglePercentage;
+                    // number of digits in that value
+                    var valueDegUnit = parseInt(valueDeg).toString().length;
+                    // 10 to the power of that value minus 1
+                    var steps = Math.pow(10, valueDegUnit-1);
+                    console.log(steps);
+                    var stepUnit = container.getStepValue(steps);
+                    return d3.range(0, d.value, steps).map(function(v, i) {
+                        //console.log("v: "+v+", i:"+i);
                         return {
                             angle: v * k + d.startAngle,
-                            label: i % 5 ? null : v / 1000 + "k"
+                            label: (function() {
+                                //i % container.opts.tickFrequency ? null : v / 1000 + "k"
+                                var label;
+                                if (i % container.opts.labelFrequency) {
+                                    label = null;
+                                }
+                                else {
+                                    label = v / steps + stepUnit;
+                                }
+                                return label;
+                            })()
                         };
                     });
                 };
@@ -317,7 +340,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
 
             container.tickUnits.append("line")
                 .transition()
-                .duration(2000)
+                .duration(container.opts.speed)
                 .attr("x1", 1)
                 .attr("y1", 0)
                 .attr("x2", 5)
@@ -325,18 +348,35 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                 .style("stroke", "#000");
 
             container.tickUnits.append("text")
-                //.transition()
-                //.duration(2000)
+                .style("opacity", 1e-6)
                 .attr("x", 8)
                 .attr("dy", ".35em")
                 .attr("transform", function(d) { return d.angle > Math.PI ? "rotate(180) translate(-16)" : null; })
                 .style("text-anchor", function(d) { return d.angle > Math.PI ? "end" : null; })
-                .text(function(d) { return d.label; }); 
+                .text(function(d) { return d.label; })
+                .transition()
+                .duration(container.opts.speed)
+                .style("opacity", 1);
+                
 
         },
-        setLabels : function() {
+        getStepValue : function(steps) {
             var container = this;
-
+            var stepLength = steps.toString().length;
+            var stepUnit = "";
+            console.log(stepLength);
+            // I need to work how how many values I will test for
+            if (stepLength > 3 && stepLength < 7) {
+                stepUnit = "k";
+            }
+            else if (stepLength > 6 && stepLength < 10) {
+                stepUnit = "m";
+            }
+            else if (stepLength > 9 && stepLength < 13) {
+                stepUnit = "b";
+            }
+            
+            return stepUnit;
         },
         filterData : function(data, category) {
             var chartData = data.filter(function(d) {
