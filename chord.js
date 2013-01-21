@@ -45,8 +45,9 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             'value' : 'size',
             'children' : undefined
         },
-        'tickFrequency' : 2,  // this is every 1 degree = 1 tick
+        'tickFrequency' : 0.3,  // this is a frquency multiplier - may not produce whole numbers
         'labelFrequency' : 5,
+        'decimalPlaces' : 2,
         'chartName' : false  // If there is a chart name then insert the value. This allows for deep exploration to show category name
     };
     
@@ -92,6 +93,9 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
 
             // set the ticks for the chart
             this.setTicks();
+
+            // add the labels on the chart
+            this.addLabels();
             
         },
         setLayout : function() {
@@ -279,22 +283,23 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
         setTicks : function() {
             var container = this,
                 // Returns an array of tick angles and labels, given a group.
+                // Note: this function is a bit of a mess atm. Will need to refactor
                 groupTicks = function(d) {
                     var k = (d.endAngle - d.startAngle) / d.value;
-                    //console.log(d.value);
-                    //console.log(d.endAngle - d.startAngle);
+                    //console.log("value: " + d.value);
                     // get angle, then divide by total angle. this gives me the percetage
                     var anglePercentage = (d.endAngle - d.startAngle) / (Math.PI * 2) * 100;
                     //console.log(anglePercentage);
                     // value per degree of the circle
                     var valueDeg = d.value / anglePercentage;
+                    //console.log("valueDeg: " + valueDeg);
                     // number of digits in that value
                     var valueDegUnit = parseInt(valueDeg).toString().length;
+                    //console.log("value per degree: " + valueDegUnit);
                     // 10 to the power of that value minus 1
-                    var steps = Math.pow(10, valueDegUnit-1);
-                    console.log(steps);
-                    var stepUnit = container.getStepValue(steps);
-                    return d3.range(0, d.value, steps).map(function(v, i) {
+                    var steps = Math.pow(10, valueDegUnit - 1);
+                    //console.log("steps: " + steps);
+                    return d3.range(0, d.value, steps/container.opts.tickFrequency).map(function(v, i) {
                         //console.log("v: "+v+", i:"+i);
                         return {
                             angle: v * k + d.startAngle,
@@ -305,7 +310,8 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                                     label = null;
                                 }
                                 else {
-                                    label = v / steps + stepUnit;
+                                    //label = (v).toFixed(container.opts.decimalPlaces) + stepUnit;
+                                    label = container.getStepLabel(v, steps);
                                 }
                                 return label;
                             })()
@@ -327,11 +333,21 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             // add new tick groups
             container.tickGroups.enter().append("g")
                 .attr("class", "tickGroup");
+
+            // ############### http://bl.ocks.org/1308257 ###################
+            // WTF!!!
+            container.ticks.selectAll(".tickGroup").append("text")
+                .attr("x", 6)
+                .attr("dy", 15)
+                .text("something")
+                .style("stroke", "#fff")
+                .append("svg:textPath")
+                .style("fill", "yellow");
             
             // define the units within each group
             container.tickUnits = container.tickGroups.selectAll("g")
                 .data(groupTicks);
-
+                
             container.tickUnits.enter().append("g")
                 .attr("class", "tickUnit")
                 .attr("transform", function(d) {
@@ -360,23 +376,53 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                 
 
         },
-        getStepValue : function(steps) {
+        addLabels : function() {
             var container = this;
-            var stepLength = steps.toString().length;
-            var stepUnit = "";
-            console.log(stepLength);
+
+            //  container.chordPaths
+            if (!container.labels) {
+                container.labels = container.arcPaths.append("text")
+                    .attr("class", "label");
+            }
+            container.labels
+                .attr("x", 6)
+                .attr("dy", 15)
+                .text("something")
+                .style("stroke", "#fff")
+                .style("text-anchor", "middle")
+                .style("fill", "yellow")
+        },
+        getStepLabel : function(value, step) {
+            var container = this,
+                labelLength = parseInt(value).toString().length,
+                divider = 1,
+                stepUnit = "";
+
+            // toFixed(container.opts.decimalPlaces)
+            console.group("get label function");
+            console.log("step: " + step);
+            console.log("value: " + value);
+            console.log("label length: " + labelLength);
+
             // I need to work how how many values I will test for
-            if (stepLength > 3 && stepLength < 7) {
+            if (labelLength > 3 && labelLength < 7) {
                 stepUnit = "k";
+                divider = 1000;
             }
-            else if (stepLength > 6 && stepLength < 10) {
+            else if (labelLength > 6 && labelLength < 10) {
                 stepUnit = "m";
+                divider = 1000000;
             }
-            else if (stepLength > 9 && stepLength < 13) {
+            else if (labelLength > 9 && labelLength < 13) {
                 stepUnit = "b";
+                divider = 1000000000;
             }
+            console.log("unit: " + stepUnit);
+            var endResult = (value / divider).toFixed(container.opts.decimalPlaces) + " " + stepUnit;
+            console.log("end value: " + endResult);
+            console.groupEnd();
             
-            return stepUnit;
+            return endResult;
         },
         filterData : function(data, category) {
             var chartData = data.filter(function(d) {
