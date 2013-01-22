@@ -1,11 +1,16 @@
 body {
-  font: 10px sans-serif;
+  font: 10px sans-serif;color:#000;
 }
 div {
 }
 h1 {font-size:40px;text-transform:uppercase;}
 
-section {float:left;width:49%;text-align:center;}
+section {}
+
+.group text {
+  font: 11px sans-serif;
+  pointer-events: none;
+}
 
 .chords path {
   fill-opacity: .67;

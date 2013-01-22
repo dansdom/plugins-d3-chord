@@ -194,40 +194,47 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                     .attr("class", "arcs");
             }
             
-            container.arcPaths = container.arcs.selectAll("path")
+            container.arcGroups = container.arcs.selectAll(".group")
                 .data(container.chord.groups);
 
-            // add the new arcs
-            container.arcPaths.enter()
-                .append("path")
+            // add the new groups
+            container.arcGroups.enter()
+                .append("g")
+                .attr("class", "group")
                 .on("mouseover", fade(.1))
-                .on("mouseout", fade(1));
+                .on("mouseout", fade(1))
+                .append("path");
 
-            if (container.oldValues) {
-                container.arcPaths
-                    .transition()
-                    .duration(container.opts.speed)
-                    .style("fill", function(d) { return container.color(d.index); })
-                    .style("stroke", function(d) { return container.color(d.index); })
-                    .attrTween("d", arcTween(container.svgArc, container.oldValues))   
-            }
-            else {
-                container.arcPaths
-                    .transition()
-                    .duration(container.opts.speed)
-                    .style("fill", function(d) { return container.color(d.index); })
-                    .style("stroke", function(d) { return container.color(d.index); })
-                    .attr("d", container.svgArc)     
-            }
-                
             // fade out the old arcs
-            container.arcPaths.exit()
+            container.arcGroups.exit()
                 .transition()
                 .duration(container.opts.speed)
                 .style("fill-opacity", 1e-6)
                 .style("stroke-opacity", 1e-6)
                 .remove();
-
+            
+            // define the arc paths
+            container.arcPaths = container.arcGroups.select("path");
+            // if there are old values then animate from them
+            if (container.oldValues) {
+                container.arcPaths
+                    .attr("id", function(d, i) { return "group" + i; })
+                    .transition()
+                    .duration(container.opts.speed)
+                    .style("fill", function(d) { return container.color(d.index); })
+                    .style("stroke", function(d) { return container.color(d.index); })
+                    .attrTween("d", arcTween(container.svgArc, container.oldValues));   
+            }
+            else {
+                container.arcPaths
+                    .attr("id", function(d, i) { return "group" + i; })
+                    .transition()
+                    .duration(container.opts.speed)
+                    .style("fill", function(d) { return container.color(d.index); })
+                    .style("stroke", function(d) { return container.color(d.index); })
+                    .attr("d", container.svgArc);
+            }
+                
         },
         setChords : function() {
             var container = this,
@@ -333,16 +340,6 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             // add new tick groups
             container.tickGroups.enter().append("g")
                 .attr("class", "tickGroup");
-
-            // ############### http://bl.ocks.org/1308257 ###################
-            // WTF!!!
-            container.ticks.selectAll(".tickGroup").append("text")
-                .attr("x", 6)
-                .attr("dy", 15)
-                .text("something")
-                .style("stroke", "#fff")
-                .append("svg:textPath")
-                .style("fill", "yellow");
             
             // define the units within each group
             container.tickUnits = container.tickGroups.selectAll("g")
@@ -379,30 +376,28 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
         addLabels : function() {
             var container = this;
 
+            // remove all the labels and then start again
+            container.arcGroups.selectAll(".label").remove();
             //  container.chordPaths
-            if (!container.labels) {
-                container.labels = container.arcPaths.append("text")
-                    .attr("class", "label");
-            }
+            container.labels = container.arcGroups.append("svg:text")
+                    .attr("class", "label")
+                    .attr("x", -100)
+                    .attr("dy", 20);
+                
+            // add the text paths - atm I'm just adding the value of the group, but with better data integration I will probably use the category name
             container.labels
-                .attr("x", 6)
-                .attr("dy", 15)
-                .text("something")
-                .style("stroke", "#fff")
-                .style("text-anchor", "middle")
-                .style("fill", "yellow")
+                .append("svg:textPath")
+                // this xlink:href maps the path element onto a target glyph with the matching id
+                .attr("xlink:href", function(d, i) { return "#group" + i; })
+                .text(function(d) {console.log(d); return d.value} )
+                .attr("startOffset", 5);
+
         },
         getStepLabel : function(value, step) {
             var container = this,
                 labelLength = parseInt(value).toString().length,
                 divider = 1,
                 stepUnit = "";
-
-            // toFixed(container.opts.decimalPlaces)
-            console.group("get label function");
-            console.log("step: " + step);
-            console.log("value: " + value);
-            console.log("label length: " + labelLength);
 
             // I need to work how how many values I will test for
             if (labelLength > 3 && labelLength < 7) {
@@ -417,10 +412,10 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                 stepUnit = "b";
                 divider = 1000000000;
             }
-            console.log("unit: " + stepUnit);
+            //console.log("unit: " + stepUnit);
             var endResult = (value / divider).toFixed(container.opts.decimalPlaces) + " " + stepUnit;
-            console.log("end value: " + endResult);
-            console.groupEnd();
+            //console.log("end value: " + endResult);
+            //console.groupEnd();
             
             return endResult;
         },
