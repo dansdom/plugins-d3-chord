@@ -389,7 +389,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                 .append("svg:textPath")
                 // this xlink:href maps the path element onto a target glyph with the matching id
                 .attr("xlink:href", function(d, i) { return "#group" + i; })
-                .text(function(d) {console.log(d); return d.value.toFixed(container.opts.decimalPlaces)} )
+                .text(function(d) { return d.value.toFixed(container.opts.decimalPlaces)} )
                 .attr("startOffset", 5);
 
         },
@@ -512,12 +512,20 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
         // gets data from a JSON request
         getData : function() {
             var container = this;
-            d3.json(container.opts.dataUrl, function(error, data) {
-                // data object
-                //container.data = container.parseData(data);
-                container.data = data;
+
+            // need to test if the data is provided or I have to make a requset first
+            if (container.opts.data) {
+                container.data = container.opts.data;
                 container.updateChart();
-            });
+            }
+            else {
+                d3.json(container.opts.dataUrl, function(error, data) {
+                    // data object
+                    //container.data = container.parseData(data);
+                    container.data = data;
+                    container.updateChart();
+                });
+            }
         },
         // updates the settings of the chart
         settings : function(settings) {
