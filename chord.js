@@ -47,6 +47,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
             'children' : undefined
         },
         'tickFrequency' : 0.3,  // this is a frquency multiplier - may not produce whole numbers
+        'tickLength' : 10,  // length of the ticks on the chart
         'labelFrequency' : 5,
         'decimalPlaces' : 2,
         'chartName' : false  // If there is a chart name then insert the value. This allows for deep exploration to show category name
@@ -357,7 +358,7 @@ var Extend = Extend || function(){var h,g,b,e,i,c=arguments[0]||{},f=1,k=argumen
                 .duration(container.opts.speed)
                 .attr("x1", 1)
                 .attr("y1", 0)
-                .attr("x2", 5)
+                .attr("x2", container.opts.tickLength)
                 .attr("y2", 0);
 
             // if labels are set then show this text

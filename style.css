@@ -17,3 +17,5 @@ section {}
   stroke: #000;
   stroke-width: .5px;
 }
+.tickUnit line {stroke:#000;}
+.tickUnit text {fill:#000;}
